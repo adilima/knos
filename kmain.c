@@ -1,3 +1,9 @@
+/**
+ * Use this file as an alternative to main.cpp,
+ * if you does not like C++
+ * 
+ * I am going to upload some C style starter codes soon.
+ */
 
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
