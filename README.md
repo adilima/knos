@@ -10,7 +10,7 @@ That's all about it.
 Please do not take me seriously, it's probably not going to be any kind of famous anyway.
 
 But it is now using mostly QEMU's serial device to output debugging messages, rather than using
-'standard' VGA/Text console, which in my opinion should not be used any further (will jot work on
+'standard' VGA/Text console, which in my opinion should not be used any further (will not work on
 UEFI based machines).
 
 :)
