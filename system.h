@@ -31,9 +31,11 @@ extern "C" {
 }
 
 /**
- * Wait for serial transmit line to be ready.
- */
+ * Wait for serial transmit line to be ready
+ * ooooopss... sorry, was not implemented as global.
 void debug_wait_ready(void);
+
+ */
 
 /**
  * Convenient for outputing Hex and Integer values.
