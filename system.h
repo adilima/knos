@@ -8,6 +8,8 @@ typedef unsigned short ushort;
 typedef unsigned long  ulong;
 typedef unsigned long  k_addr_t;
 
+#define HIGHLANDER_VERSION      0x03010100
+
 extern "C" {
 
 	/**
@@ -31,11 +33,9 @@ extern "C" {
 }
 
 /**
- * Wait for serial transmit line to be ready
- * ooooopss... sorry, was not implemented as global.
-void debug_wait_ready(void);
-
+ * Wait for serial transmit line to be ready.
  */
+void debug_wait_ready(void);
 
 /**
  * Convenient for outputing Hex and Integer values.
@@ -57,6 +57,7 @@ void debug_size(const char *strText, size_t nsize, bool bAppendBytes=false);
 #define DEBUG_PTR(title, val) \
 	debug_addr(((const char *)(title)), ((uintptr_t)(val)))
 
+uintptr_t k_memory_map(uintptr_t phys, uintptr_t virt, size_t len);
 
 namespace system
 {
@@ -89,6 +90,35 @@ namespace system
 	protected:
 		char *Dup(const char *src);
 	};
+
+	struct framebuffer
+	{
+		uintptr_t phys;
+		uintptr_t virt;
+		uint32_t width;
+		uint32_t height;
+		uint32_t pitch;
+		uint32_t bpp;
+
+		/**
+		 * Some default colors
+		 */
+		uint32_t forecolor;
+		uint32_t backcolor;
+
+		/**
+		 * Defined as uintptr_t
+		 * because we don't want to pull in multiboot2.h
+		 */
+		framebuffer(uintptr_t tag);
+		void clear();
+	};
+
+	/**
+	 * There should be one and only fbdev all the way.
+	 * And it should be declared somewhere in kernel's code.
+	 */
+	extern framebuffer *fbdev;
 }
 
 void *operator new(size_t len);

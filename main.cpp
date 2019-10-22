@@ -66,7 +66,10 @@ uint64_t read_tsc(void)
 	return retval;
 }
 
-namespace system { k_object *root = nullptr; }
+namespace system { 
+	k_object *root = nullptr;
+	framebuffer *fbdev = nullptr;
+}
 
 extern "C"
 void kmain(uintptr_t mbi)
@@ -91,13 +94,15 @@ void kmain(uintptr_t mbi)
 
 	uintptr_t vga = 0xb8000;
 
+	multiboot_tag_framebuffer *fbtag = nullptr;
+
 	debug_size("\n[kmain] MBI First tag -> ", tag->type);
 
 	while (tag->type != MULTIBOOT_TAG_TYPE_END)
 	{
 		if (tag->type == MULTIBOOT_TAG_TYPE_FRAMEBUFFER)
 		{
-			multiboot_tag_framebuffer *fbtag = reinterpret_cast<multiboot_tag_framebuffer*>(tag);
+			fbtag = reinterpret_cast<multiboot_tag_framebuffer*>(tag);
 			debug_addr("\n[kmain] Framebuffer found at ", fbtag->common.framebuffer_addr);
 			debug_size("\n                    width   : ", fbtag->common.framebuffer_width);
 			debug_size("\n                    height  : ", fbtag->common.framebuffer_height);
@@ -124,6 +129,8 @@ void kmain(uintptr_t mbi)
 					debug_print("\nQEMU UEFI based framebuffer.\n");
 				else
 					debug_print("\nMost likely we are on REAL hardware, and this text may not be displayed.\n");
+
+				debug_print("[kmain] Framebuffer object will be created after we initialize the heap.\n");
 			}
 		}
 
@@ -173,11 +180,46 @@ void kmain(uintptr_t mbi)
 	debug_size("\n[kmain] testing k_strlen() with \'This is a test\' => ",
 			k_strlen("This is a test"));
 
+	debug_print("\n[kmain] Testing framebuffer\n");
+	system::fbdev = new system::framebuffer((uintptr_t)fbtag);
+	if (system::fbdev->virt)
+	{
+		system::fbdev->clear();
+	}
+
 	debug_print("\n[kmain] test completed.\nSleeping forever... bye...\n\n");
 
 	while (1)
 	{
 		asm volatile("nop");
+	}
+}
+
+system::framebuffer::framebuffer(uintptr_t tag)
+{
+	multiboot_tag_framebuffer *fbtag = reinterpret_cast<multiboot_tag_framebuffer*>(tag);
+	phys = fbtag->common.framebuffer_addr;
+	width = fbtag->common.framebuffer_width;
+	height = fbtag->common.framebuffer_height;
+	pitch = fbtag->common.framebuffer_pitch;
+	bpp = fbtag->common.framebuffer_bpp;
+	forecolor = 0xffffff;
+	backcolor = 0x1010ff; // some blue color
+
+	size_t map_size = pitch * height;
+	virt = k_memory_map(phys, 0xffffffffd0000000, map_size);
+	if (!virt)
+		debug_print("\n[system::framebuffer] \033[1;31mWARNING: Failed to map virtual address for framebuffer at 0xffffffffc0000000.\033[0m\n");
+}
+
+void system::framebuffer::clear()
+{
+	unsigned *ptr = (unsigned*)virt;
+	size_t count = width * height;
+	for (size_t i = 0; i < count; i++)
+	{
+		// clear the whole screen using backcolor
+		*ptr++ = backcolor;
 	}
 }
 

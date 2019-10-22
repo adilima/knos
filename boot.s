@@ -9,8 +9,34 @@ header_start:
 	.long header_end - header_start
 	.long 0x100000000 - (MAGIC + 0 + (header_end - header_start))
 
-.align 8
 multiboot_header:
+
+tag_info_start:
+	.short 1
+	.short 0
+	.long tag_info_end - tag_info_start
+	.long 1
+	.long 2
+	.long 6
+tag_info_end:
+
+.align 8
+console_tag_start:
+	.short 4
+	.short 0
+	.long console_tag_end - console_tag_start
+	.long 3		# means we support EGA/VGA console (if available)
+console_tag_end:
+
+.align 8
+fb_tag_start:
+	.short 5
+	.short 1
+	.long fb_tag_end - fb_tag_start
+	.long 800		# width
+	.long 600		# height
+	.long 32		# bpp
+fb_tag_end:
 
 .align 8
 end_tag:
@@ -41,6 +67,8 @@ kernel_pages:
 	.skip 0x1000
 kernel_temp_pages:
 	.skip 0x1000
+fb_pages:
+	.skip 0x4000
 paging_data_end:
 mbi_data:
 	.skip 0x1000
@@ -142,6 +170,7 @@ amd64_setup:
 	movl $(kernel_heap + 511 * 8), %edi
 	movl %eax, (%edi)
 	movl $0, 4(%edi)
+
 
 
 	movl $pml4_table, %eax

@@ -51,6 +51,9 @@ void *system::HeapAlloc(size_t len)
 			// attach this to the end of root
 			SetTail(root, tmp);
 			ZeroMemory(tmp->data, len);
+			DEBUG_PTR("\n[HeapAlloc] Returning ", tmp->data);
+			DEBUG_PTR(" of object ", tmp);
+			debug_print(" as new heap.\n");
 			return reinterpret_cast<void*>(tmp->data);
 		}
 
@@ -71,6 +74,8 @@ void *system::HeapAlloc(size_t len)
 		}
 	}
 
+	debug_size("\n[HeapAlloc] Allocating new object as a container for ", len);
+	debug_print(" bytes of memory.\n");
 	// Not found, alloc new one
 	// If this is the first time we gets called,
 	// the next_available will be 0, initialize it.
@@ -132,7 +137,7 @@ void system::HeapFree(void* pv)
 		
 		// Find the node at root, and remove it
 		RemoveNode(root, obj);
-		DEBUG_PTR("\n[HeapFree] Set ", pv);
+		DEBUG_PTR("\n[HeapFree] Set ", recycled);
 		debug_print(" as first recycled object\n");
 		return;
 	}
@@ -154,27 +159,148 @@ void *operator new[](size_t len)
 void operator delete(void *pv, size_t len) noexcept
 {
 	debug_size("\n[operator delete] length = ", len);
-	debug_print("\nDelegate to HeapFree()\n");
+	debug_print("\n                  Delegate to HeapFree()\n");
 	HeapFree(pv);
 }
 
 void operator delete[](void *pv, size_t len) noexcept
 {
 	debug_size("\noperator delete[] length = ", len);
-	debug_print("\nDelegate to HeapFree()\n");
+	debug_print("\n                  Delegate to HeapFree()\n");
 	HeapFree(pv);
 }
 
 void operator delete(void *pv) noexcept
 {
+	DEBUG_PTR("\n[operator delete(", pv);
+	debug_print(") delegating to HeapFree()\n");
 	HeapFree(pv);
 }
 
 void operator delete[](void *pv) noexcept
 {
+	DEBUG_PTR("\n[operator delete[] (", pv);
+	debug_print(") delegating to HeapFree()\n");
+
 	HeapFree(pv);
 }
 
+
+/**
+ * CAVEAT is:
+ * Currently we can still map to a valid address, unless
+ * the virtual address given is not in 2 MB boundary.
+ *
+ * I should make it better soon.
+ * :-)
+ */
+
+uintptr_t k_memory_map(uintptr_t phys, uintptr_t vaddr, size_t len)
+{
+	// fisrt, get PML4 table
+	uintptr_t p4;
+	asm volatile("mov %%cr3, %%rax" : "=a"(p4));
+
+	// the get the pdp, index is started at bit 39
+	uint64_t index = (vaddr >> 39) & 0x1ff;
+
+	uint64_t *table = (uint64_t*)p4;
+	if (table[index] & 0x1)
+	{
+		// actually it must be there, because we initialize it at bootstrap
+		uintptr_t obj = table[index] & ~0xff;  // remove the trailing flags
+		table = (uint64_t*)obj;                // the pdp
+		index = (vaddr >> 30) & 0x1ff;         // index of page directory in the pdp
+		if (table[index] & 0x1)
+		{
+			// the page directory is also must be there
+			obj = table[index] & ~0xff;
+			table = (uint64_t*)obj;           // the Page Directory
+			index = (vaddr >> 22) & 0x1ff;    // this is the page frame (most likely is not there)
+
+			///////////////////////////////////////////////////////////////////////
+			// I guess we should remove this block, we don't use the index anyway.
+			///////////////////////////////////////////////////////////////////////
+			debug_size("\n[k_memory_map] Checking Page Directory index ", index);
+			if (table[index] & 0x1)
+			{
+				// but if it is, then we should check if the address matches phys
+				if ((table[index] & ~0xff) == phys)
+				{
+					debug_addr("\n[k_memory_map] already exists => ", table[index]);
+					return vaddr;
+				}
+
+				// if not, just failed the mmap
+				// because the address is currently in use
+				debug_addr("\n[k_memory_map] the virtual addr at index is ", table[index] & ~0xff);
+				return 0;
+			}
+			
+			//////////////////////////////////////////////////////////////////////////
+			// These are the real work, add new entries based on 0xFFFFFFFFC0000000,
+			// which have a nice PML4[511], PDP[511], and PD[0].
+			//
+			// So we can start using the Page Directory on index 0, no matter what
+			// the requested address is.
+			//
+			// if it's not there, then create an entry.
+			///////////////////////////////////////////////////////////////////////////
+			size_t count = len / 0x200000;   // using 2 Mb pages
+			if (len % 0x200000)
+				count++;    // round up
+
+			size_t distance  = vaddr - 0xffffffffc0000000;  // in bytes
+			size_t page_diff = distance / 0x200000;         // in pages (2 MB each)
+
+			// in this case, because we use 0xffffffffc0000000 as the base
+			// then page_diff is the new_index for 2 mb pages.
+			uintptr_t start_addr = (phys - distance) & 0xfffffffffffff000;
+
+			debug_addr("\n[k_memory_map] We have a distance of ", distance);
+			debug_size(" bytes between start addr and this index: ", page_diff);
+			debug_addr(" in this Page Directory,\n[k_memory_map] where the start_addr is => ", start_addr);
+
+			//table[0] = start_addr | 0x83;
+
+			size_t current_entry = page_diff;
+			uintptr_t paddr = phys;
+			if ((page_diff == 0) && (distance != 0))
+			{
+				// It means the requested address is something like:
+				// 0xffffffffc010000000, where we still in index 0,
+				// but there's a 0x100000 bytes distance in between
+				// we cannot map phys to the 0xffffffffc0000000, it would be wrong.
+				// since the 0xffffffffc0000000 should always belong to the real start address,
+				// which is phys - distance (or, should we round 'distance' to 0x200000 page boundary?).
+				//
+				// We still got a page fault using this one.
+				// TODO: Fix it soon.
+				table[current_entry++] = start_addr | 0x83;
+				paddr = start_addr + 0x200000;
+				count--;
+			}
+
+			while (count)
+			{
+				table[current_entry++] = paddr | 0x83;
+				paddr += 0x200000;
+				count--;
+			}
+
+			debug_print("\n[k_memory_map] Flushing TLB.\n");
+			asm volatile("mov %%cr3, %%rax" : "=a"(p4));
+			asm volatile("mov %0, %%cr3" : : "a"(p4));
+
+
+			debug_addr("[k_memory_map] Done, returning => ", vaddr);
+
+			return vaddr;
+		}
+	}
+
+	return 0;
+}
 
 
 
