@@ -13,6 +13,15 @@ But it is now using mostly QEMU's serial device to output debugging messages, ra
 'standard' VGA/Text console, which in my opinion should not be used any further (will not work on
 UEFI based machines).
 
+Added Framebuffer tag to boot.s, requested 800x600 @32 fbdev.
+Needless to say, also change some codes in boot.s to include another table (empty and not-present), but
+the entry in Page Directory Pointer already added to index 511, so it will use 0xFFFFFFFFC0000000 as the
+base.
+
+Surely we can make the fbdev larger, but QEMU will create a large (but still empty) 'monitor' covering up
+all the screen, and rather annoying for me (it's only meant for testing anyway).
+
+
 :)
 
-![Screenshot 1](Screenshot_2019-10-21_21-42-41.png "Recent test on QEMU")
+![Screenshot 1](Screenshot_2019-10-23_01-09-13.png "Recent test on QEMU")
