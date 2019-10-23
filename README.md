@@ -30,15 +30,15 @@ Changes today:
  
  ```cpp
  
- 			size_t last_bits = 0xffff; // 16 unused bits
-			size_t start_p4  = (vaddr >> 39) & 0x1ff;
-			size_t start_pdp = (vaddr >> 30) & 0x1ff;
-			uintptr_t start_vaddr = (last_bits << 48) | (start_p4 << 39) | (start_pdp << 30);
+size_t last_bits = 0xffff; // 16 unused bits
+size_t start_p4  = (vaddr >> 39) & 0x1ff;
+size_t start_pdp = (vaddr >> 30) & 0x1ff;
+uintptr_t start_vaddr = (last_bits << 48) | (start_p4 << 39) | (start_pdp << 30);
 
-			size_t distance  = vaddr - start_vaddr;  // in bytes
-			size_t page_diff = distance / 0x200000;  // in pages (2 MB each)
+size_t distance  = vaddr - start_vaddr;  // in bytes
+size_t page_diff = distance / 0x200000;  // in pages (2 MB each)
 
-			// in this case, page_diff is the new_index for 2 mb pages.
+// in this case, page_diff is the new_index for 2 mb pages.
 
 ```
 
