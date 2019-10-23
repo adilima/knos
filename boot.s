@@ -21,6 +21,13 @@ tag_info_start:
 tag_info_end:
 
 .align 8
+module_align_tag_start:
+	.short 6
+	.short 1
+	.long module_align_tag_end - module_align_tag_start
+module_align_tag_end:
+
+.align 8
 console_tag_start:
 	.short 4
 	.short 0

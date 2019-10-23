@@ -8,7 +8,7 @@ typedef unsigned short ushort;
 typedef unsigned long  ulong;
 typedef unsigned long  k_addr_t;
 
-#define HIGHLANDER_VERSION      0x03010100
+#define HIGHLANDER_VERSION      0x05010100
 
 extern "C" {
 
@@ -30,6 +30,7 @@ extern "C" {
 	uint8_t k_inb(uint16_t port);
 
 	size_t k_strlen(const char *strText);
+	int k_str_equal(const char *str1, const char *str2, size_t len);
 }
 
 /**
@@ -58,6 +59,17 @@ void debug_size(const char *strText, size_t nsize, bool bAppendBytes=false);
 	debug_addr(((const char *)(title)), ((uintptr_t)(val)))
 
 uintptr_t k_memory_map(uintptr_t phys, uintptr_t virt, size_t len);
+
+struct PSF_FONT {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t header_size;
+	uint32_t flags;
+	uint32_t num_glyph;
+	uint32_t bytes_per_glyph;
+	uint32_t height;
+	uint32_t width;
+};
 
 namespace system
 {
@@ -105,6 +117,7 @@ namespace system
 		 */
 		uint32_t forecolor;
 		uint32_t backcolor;
+		PSF_FONT *font;
 
 		/**
 		 * Defined as uintptr_t
@@ -112,6 +125,8 @@ namespace system
 		 */
 		framebuffer(uintptr_t tag);
 		void clear();
+		void show_test();
+		void putchar(char ch, int xpos, int ypos);
 	};
 
 	/**

@@ -68,7 +68,6 @@ uint64_t read_tsc(void)
 
 namespace system { 
 	k_object *root = nullptr;
-	framebuffer *fbdev = nullptr;
 }
 
 extern "C"
@@ -79,17 +78,19 @@ void kmain(uintptr_t mbi)
 
 	// Testing local variable instance addresses
 	// Most likely it's using lower half address.
-	int intLocalVar = 1234;
-
+	int intLocalVar = 12345678;
 	static int sValue = 1;
-	DEBUG_PTR("\n[kmain] Local Integer Variable address (stack) => ", &intLocalVar);
+
+	DEBUG_PTR("\n[kmain]    Local Integer Variable address (stack) => ", &intLocalVar);
 	DEBUG_PTR("\n[constant] Testing constant addr => ", "This is a test");
-	DEBUG_PTR("\n[static] Testing static local var => ", &sValue);
+	DEBUG_PTR("\n[static]   Testing static local var => ", &sValue);
 	
 	debug_addr("\n[kmain] MBI => ", mbi);
 	debug_size("; size = ", *((unsigned*)mbi), true);
 
 	multiboot_tag* tag = reinterpret_cast<multiboot_tag*>(mbi + 8);
+	multiboot_tag_module *module_tag = nullptr;
+
 	uintptr_t pos = mbi + 8;
 
 	uintptr_t vga = 0xb8000;
@@ -133,6 +134,18 @@ void kmain(uintptr_t mbi)
 				debug_print("[kmain] Framebuffer object will be created after we initialize the heap.\n");
 			}
 		}
+		else if (tag->type == MULTIBOOT_TAG_TYPE_MODULE)
+		{
+			module_tag = reinterpret_cast<multiboot_tag_module*>(tag);
+			DEBUG_PTR("\n[kmain] Found a module at => ", module_tag);
+			debug_print("; cmdline = ");
+			debug_print(module_tag->cmdline);
+
+			if (k_str_equal(module_tag->cmdline, "font", k_strlen("font")))
+				debug_print("\n[kmain] The module is a font.");
+
+			debug_print("\n");
+		}
 
 		pos = (pos + tag->size + 7) & ~7;
 		tag = reinterpret_cast<multiboot_tag*>(pos);
@@ -151,40 +164,24 @@ void kmain(uintptr_t mbi)
 	}
 
 	system::root = pHeap;
-	DEBUG_PTR("\n[kmain] Heap start => ", heap_start);
-	DEBUG_PTR("\n[kmain] data addr    => ", &pHeap->data);
-	DEBUG_PTR("\n             data    => ", pHeap->data);
-	DEBUG_PTR("\n             limit   => ", pHeap->limit);
-
-	debug_print("\n[kmain] Testing newly written HeapAlloc(), Free(), and C++ operators\n");
-	int* pInt = new int[25];
-	DEBUG_PTR("[kmain] Created array of int[25] starting from => ", pInt);
-	debug_size("; value[0] = ", pInt[0]);
-	debug_print("\nDelete the pointer.\n");
-	delete [] pInt;
-
-	system::String obj("[String] This is a test");
-
-	obj.Show(vga);
-	debug_print("\n[system::String]::Data() => ");
-	debug_print(obj.Data());
-
-	system::String* pStr = new system::String("[kmain] This is system::String from the heap.");
-	pStr->Show(vga + 160);
-
-	debug_print("\033[1;32m\n[kmain] system::String->Data() = ");
-	debug_print(pStr->Data());
-	debug_print("\033[0m\n");
-	delete pStr;
 
 	debug_size("\n[kmain] testing k_strlen() with \'This is a test\' => ",
 			k_strlen("This is a test"));
+	debug_print("\n\033[1;31m[kmain] Heap initialized.\n\033[0m");
 
-	debug_print("\n[kmain] Testing framebuffer\n");
+	debug_print("[kmain] Testing framebuffer\n");
 	system::fbdev = new system::framebuffer((uintptr_t)fbtag);
 	if (system::fbdev->virt)
 	{
+		debug_print("\n[kmain] Looks like the framebuffer is ready, clearing screen.\n");
 		system::fbdev->clear();
+		if (module_tag)
+		{
+			// it should be okay even though we dont translate the address
+			debug_addr("[kmain] Font addr => ", module_tag->mod_start);
+			system::fbdev->font = reinterpret_cast<PSF_FONT*>(module_tag->mod_start);
+			system::fbdev->show_test();
+		}
 	}
 
 	debug_print("\n[kmain] test completed.\nSleeping forever... bye...\n\n");
@@ -195,31 +192,4 @@ void kmain(uintptr_t mbi)
 	}
 }
 
-system::framebuffer::framebuffer(uintptr_t tag)
-{
-	multiboot_tag_framebuffer *fbtag = reinterpret_cast<multiboot_tag_framebuffer*>(tag);
-	phys = fbtag->common.framebuffer_addr;
-	width = fbtag->common.framebuffer_width;
-	height = fbtag->common.framebuffer_height;
-	pitch = fbtag->common.framebuffer_pitch;
-	bpp = fbtag->common.framebuffer_bpp;
-	forecolor = 0xffffff;
-	backcolor = 0x1010ff; // some blue color
-
-	size_t map_size = pitch * height;
-	virt = k_memory_map(phys, 0xffffffffd0000000, map_size);
-	if (!virt)
-		debug_print("\n[system::framebuffer] \033[1;31mWARNING: Failed to map virtual address for framebuffer at 0xffffffffc0000000.\033[0m\n");
-}
-
-void system::framebuffer::clear()
-{
-	unsigned *ptr = (unsigned*)virt;
-	size_t count = width * height;
-	for (size_t i = 0; i < count; i++)
-	{
-		// clear the whole screen using backcolor
-		*ptr++ = backcolor;
-	}
-}
 

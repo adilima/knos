@@ -14,7 +14,10 @@ CXXFLAGS = -O2 -ffreestanding -fno-builtin -fno-rtti -fno-exceptions \
 
 LDFLAGS = -n -T linker.ld 
 
-OBJECTS = boot.o debug.o heap.o memory.o main.o string.o
+OBJECTS = boot.o debug.o heap.o \
+		  memory.o main.o string.o \
+		  fbdev.o 
+
 TARGET  = test1
 
 all: $(TARGET)
@@ -36,7 +39,7 @@ install: $(TARGET)
 
 
 clean:
-	rm -fv *.o $(TARGET) libkernel.a
+	rm -fv *.o $(TARGET)
 
 
 

@@ -4,6 +4,7 @@
 .global k_outb
 .global debug_print
 .global k_strlen
+.global k_str_equal
 
 .type k_inb, @function
 k_inb:
@@ -68,6 +69,7 @@ debug_print:
 
 3:
 	ret
+.size debug_print, . - debug_print
 
 .type k_strlen, @function
 k_strlen:
@@ -81,5 +83,34 @@ k_strlen:
 	jmp 1b
 2:
 	ret
+.size k_strlen, . - k_strlen
 
+.type k_str_equal, @function
+k_str_equal:
+	# RDI = str1
+	# RSI = str2
+	# RDX = len
+	mov %rdi, %r8
+	mov %rsi, %r9
+1:
+	movb (%rdi), %al
+	movb (%rsi), %cl
+	cmp %al, %cl
+	jne 2f
+	inc %rdi
+	inc %rsi
+	dec %rdx
+	cmp $0, %rdx
+	jne 1b
+	mov $1, %rax
+	mov %r8, %rdi
+	mov %r9, %rsi
+	ret
+
+2:
+	mov $0, %rax
+	mov %r8, %rdi
+	mov %r9, %rsi
+	ret
+.size k_str_equal, . - k_str_equal
 

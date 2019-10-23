@@ -188,10 +188,21 @@ void operator delete[](void *pv) noexcept
 
 /**
  * CAVEAT is:
+ * The Page Directory must already been setup in assembly code,
+ * otherwise, we will have to do it in C (or in this case C++),
+ * and that's very inconvenient, because we may have to convert
+ * local tables virtual addresses into physical one (takes time).
+ *
  * Currently we can still map to a valid address, unless
  * the virtual address given is not in 2 MB boundary.
  *
+ * And if you try to map on other address outside PML4[511] and PDP[511]
+ * based, the result is undefined.
+ *
  * I should make it better soon.
+ * This will be the next task to write a more clever page allocator,
+ * and frame allocator, as a C++ class.
+ *
  * :-)
  */
 
@@ -231,6 +242,7 @@ uintptr_t k_memory_map(uintptr_t phys, uintptr_t vaddr, size_t len)
 					return vaddr;
 				}
 
+
 				// if not, just failed the mmap
 				// because the address is currently in use
 				debug_addr("\n[k_memory_map] the virtual addr at index is ", table[index] & ~0xff);
@@ -244,22 +256,37 @@ uintptr_t k_memory_map(uintptr_t phys, uintptr_t vaddr, size_t len)
 			// So we can start using the Page Directory on index 0, no matter what
 			// the requested address is.
 			//
+			// TODO:
+			// Simplify the following equations, it seems tedious, but at least
+			// it is now correctly map the requested address, unlike before.
+			//
+			// We should have a more sophisticated way to calculate the index though.
+			//
 			// if it's not there, then create an entry.
 			///////////////////////////////////////////////////////////////////////////
 			size_t count = len / 0x200000;   // using 2 Mb pages
 			if (len % 0x200000)
 				count++;    // round up
 
-			size_t distance  = vaddr - 0xffffffffc0000000;  // in bytes
+			size_t last_bits = 0xffff; // 16 unused bits
+			size_t start_p4  = (vaddr >> 39) & 0x1ff;
+			size_t start_pdp = (vaddr >> 30) & 0x1ff;
+			uintptr_t start_vaddr = (last_bits << 48) | (start_p4 << 39) | (start_pdp << 30);
+
+			size_t distance  = vaddr - start_vaddr;  // in bytes
 			size_t page_diff = distance / 0x200000;         // in pages (2 MB each)
 
 			// in this case, because we use 0xffffffffc0000000 as the base
 			// then page_diff is the new_index for 2 mb pages.
 			uintptr_t start_addr = (phys - distance) & 0xfffffffffffff000;
+			if (start_addr % 0x200000)
+				start_addr -= (start_addr % 0x200000);
+
 
 			debug_addr("\n[k_memory_map] We have a distance of ", distance);
-			debug_size(" bytes between start addr and this index: ", page_diff);
+			debug_size(" bytes\n[k_memory_map] between start addr and index ", page_diff);
 			debug_addr(" in this Page Directory,\n[k_memory_map] where the start_addr is => ", start_addr);
+			debug_size("\n[k_memory_map] Ignoring table index for 4K pages, and using index ", page_diff);
 
 			//table[0] = start_addr | 0x83;
 
@@ -276,8 +303,12 @@ uintptr_t k_memory_map(uintptr_t phys, uintptr_t vaddr, size_t len)
 				//
 				// We still got a page fault using this one.
 				// TODO: Fix it soon.
-				table[current_entry++] = start_addr | 0x83;
-				paddr = start_addr + 0x200000;
+				debug_addr("\n\033[1;31m[k_memory_map]\033[0m some distance between start page, but page diff == 0, start_addr will be ",
+						paddr - (distance % 0x200000));
+
+				paddr -= (distance % 0x200000);
+				table[current_entry++] = paddr | 0x83;
+				paddr += 0x200000;
 				count--;
 			}
 
@@ -291,8 +322,6 @@ uintptr_t k_memory_map(uintptr_t phys, uintptr_t vaddr, size_t len)
 			debug_print("\n[k_memory_map] Flushing TLB.\n");
 			asm volatile("mov %%cr3, %%rax" : "=a"(p4));
 			asm volatile("mov %0, %%cr3" : : "a"(p4));
-
-
 			debug_addr("[k_memory_map] Done, returning => ", vaddr);
 
 			return vaddr;
