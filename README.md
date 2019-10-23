@@ -21,7 +21,10 @@ base.
 Surely we can make the fbdev larger, but QEMU will create a large (but still empty) 'monitor' covering up
 all the screen, and rather annoying for me (it's only meant for testing anyway).
 
+Changes today:
+  - Draw text to graphical framebuffer, instead of VGA.
+  - Add lat9-16.psf font as GRUB2 module, use it as default font.
 
 :)
 
-![Screenshot 1](Screenshot_2019-10-23_01-09-13.png "Recent test on QEMU")
+![Screenshot 1](Screenshot_2019-10-24_00-44-29.png "Recent test on QEMU")
