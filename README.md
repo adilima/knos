@@ -75,4 +75,4 @@ printf("At PML4 Table index %llu\nPDP index %llu\nFrame 0x%X\n",
 
 :)
 
-![Screenshot 1](Screenshot_2019-10-24_00-44-29.png "Recent test on QEMU")
+![Screenshot 1](screenshot-0.0.2-b.png "Recent test on QEMU")
