@@ -89,6 +89,7 @@ namespace system
 	{
 		char *buffer;
 		size_t length;
+		bool m_bInternal;
 	public:
 		String();
 		String(size_t len);
@@ -98,6 +99,11 @@ namespace system
 		// Display the content on VGA Console
 		void Show(uintptr_t pos);
 		char *Data() const;
+
+		void Copy(const char *strText);
+
+		// display debug text on serial
+		void Debug();
 
 	protected:
 		char *Dup(const char *src);
@@ -127,6 +133,7 @@ namespace system
 		void clear();
 		void show_test();
 		void putchar(char ch, int xpos, int ypos);
+		void draw_string(const char *strText, int xpos, int ypos);
 	};
 
 	/**

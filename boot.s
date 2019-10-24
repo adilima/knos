@@ -21,13 +21,6 @@ tag_info_start:
 tag_info_end:
 
 .align 8
-module_align_tag_start:
-	.short 6
-	.short 1
-	.long module_align_tag_end - module_align_tag_start
-module_align_tag_end:
-
-.align 8
 console_tag_start:
 	.short 4
 	.short 0
@@ -40,8 +33,8 @@ fb_tag_start:
 	.short 5
 	.short 1
 	.long fb_tag_end - fb_tag_start
-	.long 800		# width
-	.long 600		# height
+	.long 1280		# width
+	.long 720		# height
 	.long 32		# bpp
 fb_tag_end:
 
@@ -77,6 +70,13 @@ kernel_temp_pages:
 fb_pages:
 	.skip 0x4000
 paging_data_end:
+
+##############################################
+# The MBI data can be large, especially if
+# we request to load more modules like fonts
+# if the modules count increase, we may need
+# to increase the following size.
+##############################################
 mbi_data:
 	.skip 0x1000
 

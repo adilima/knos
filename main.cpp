@@ -74,7 +74,7 @@ extern "C"
 void kmain(uintptr_t mbi)
 {
 	debug_init();
-	debug_print("\n\033[1;31m------------ C++ Started -------------\033[0m\n");
+	debug_print("\n\033[1;31m------------------- C++ Started ------------------\033[0m\n");
 
 	// Testing local variable instance addresses
 	// Most likely it's using lower half address.
@@ -140,6 +140,9 @@ void kmain(uintptr_t mbi)
 			DEBUG_PTR("\n[kmain] Found a module at => ", module_tag);
 			debug_print("; cmdline = ");
 			debug_print(module_tag->cmdline);
+			
+			// all we need is the first argument that indicate this is a font
+			// ignore any other for now
 
 			if (k_str_equal(module_tag->cmdline, "font", k_strlen("font")))
 				debug_print("\n[kmain] The module is a font.");
@@ -169,6 +172,17 @@ void kmain(uintptr_t mbi)
 			k_strlen("This is a test"));
 	debug_print("\n\033[1;31m[kmain] Heap initialized.\n\033[0m");
 
+	system::String *pStr = new system::String();
+	pStr->Copy("\033[1;33m[kmain] system::String using heap.\n\033[0m");
+	pStr->Debug();
+	
+	// delete the string, then recreate using initializer
+	delete pStr;
+	
+	pStr = new system::String("\033[1;34m[kmain] system::String using heap, and designated initializer.\n\033[0m");
+	pStr->Debug();
+	delete pStr;
+
 	debug_print("[kmain] Testing framebuffer\n");
 	system::fbdev = new system::framebuffer((uintptr_t)fbtag);
 	if (system::fbdev->virt)
@@ -177,10 +191,19 @@ void kmain(uintptr_t mbi)
 		system::fbdev->clear();
 		if (module_tag)
 		{
-			// it should be okay even though we dont translate the address
-			debug_addr("[kmain] Font addr => ", module_tag->mod_start);
 			system::fbdev->font = reinterpret_cast<PSF_FONT*>(module_tag->mod_start);
 			system::fbdev->show_test();
+			system::fbdev->draw_string("[kmain] The framebuffer is ready to go.\nBorrowing Linux console font lat9-16.psf (as our first module).", 1, 2);
+
+			// show more garbage using different text color
+			system::fbdev->forecolor = 0xff8005;
+			system::fbdev->draw_string("[kmain] This text is drawn as an array of glyphs into the fbdev, instead of VGA text buffer.\n        Drawing text is actually not that hard, but of course need to write extra codes.", 1, 5);
+
+			system::fbdev->forecolor = 0xff3010;
+			system::fbdev->draw_string("[kmain] -------- End of system test", 1, 8);
+			
+			system::fbdev->forecolor= 0xffffff;
+			system::fbdev->draw_string("[kmain] The system will sleep forever.", 1, 10);
 		}
 	}
 
