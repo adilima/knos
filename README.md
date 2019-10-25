@@ -73,6 +73,6 @@ printf("At PML4 Table index %llu\nPDP index %llu\nFrame 0x%X\n",
 
 ```
 
-:)
+![Screenshot 1](Screenshot_2019-10-25_21-39-44.png "Recent test on QEMU")
 
-![Screenshot 1](screenshot-0.0.2-b.png "Recent test on QEMU")
+Console output is now implemented as external buffer, so the fbdev can focus on updating certain areas of the screen only, as needed (not yet fully implemented).
