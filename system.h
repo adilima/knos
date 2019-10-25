@@ -6,9 +6,8 @@
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned long  ulong;
-typedef unsigned long  k_addr_t;
+typedef unsigned long  k_addr_t;  // unused so far, maybe deleted soon
 
-#define HIGHLANDER_VERSION      0x05010100
 
 extern "C" {
 
@@ -59,6 +58,7 @@ void debug_size(const char *strText, size_t nsize, bool bAppendBytes=false);
 	debug_addr(((const char *)(title)), ((uintptr_t)(val)))
 
 uintptr_t k_memory_map(uintptr_t phys, uintptr_t virt, size_t len);
+void k_strcpy(char *dest, const char *src);
 
 struct PSF_FONT {
 	uint32_t magic;
@@ -85,6 +85,10 @@ namespace system
 	void *HeapAlloc(size_t len);
 	void HeapFree(void *pv);
 
+	/**
+	 * Simple String implementation
+	 * Only for test.
+	 */
 	class String
 	{
 		char *buffer;
@@ -104,6 +108,9 @@ namespace system
 
 		// display debug text on serial
 		void Debug();
+		void Append(const char *strText);
+		void Append(const char *title, void *paddr);
+		void AppendNumber(const char *title, size_t value);
 
 	protected:
 		char *Dup(const char *src);
@@ -134,6 +141,18 @@ namespace system
 		void show_test();
 		void putchar(char ch, int xpos, int ypos);
 		void draw_string(const char *strText, int xpos, int ypos);
+
+		/**
+		 * The framebuffer does not need to know what the external buffer
+		 * contains, it can be text or any other graphics primitives.
+		 *
+		 * It only copy the pixels to the specified location.
+		 *
+		 * Actually putchar() and draw_string() should be implemented
+		 * in another class, representing a text buffer, then we can
+		 * use this function to display the text here.
+		 */
+		void blt(unsigned *buf, int xpos, int ypos, int cx, int cy);
 	};
 
 	/**
@@ -141,6 +160,39 @@ namespace system
 	 * And it should be declared somewhere in kernel's code.
 	 */
 	extern framebuffer *fbdev;
+
+	// forward decl
+	struct text_buffer;
+
+	class terminal
+	{
+		uint32_t *pixels;
+		uint32_t width;
+		uint32_t height;
+		uint32_t forecolor;
+		uint32_t backcolor;
+		uint32_t pitch;
+		PSF_FONT *font; // will copy the address from system::fbdev::font
+		text_buffer *strBuff;
+
+	public:
+		terminal(uint32_t cx, uint32_t cy);
+		~terminal();
+
+		uint32_t *pixel_data() const;
+		uint32_t window_width() const;
+		uint32_t window_height() const;
+		uint32_t rows();
+		uint32_t columns();
+
+		void clear();
+		void puts(const char *strText);
+
+	private:
+		// render the rows into the buffer
+		void draw_buffers();
+		void putchar(char ch, int xpos, int ypos);
+	};
 }
 
 void *operator new(size_t len);

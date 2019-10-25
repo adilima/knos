@@ -140,9 +140,6 @@ void kmain(uintptr_t mbi)
 			DEBUG_PTR("\n[kmain] Found a module at => ", module_tag);
 			debug_print("; cmdline = ");
 			debug_print(module_tag->cmdline);
-			
-			// all we need is the first argument that indicate this is a font
-			// ignore any other for now
 
 			if (k_str_equal(module_tag->cmdline, "font", k_strlen("font")))
 				debug_print("\n[kmain] The module is a font.");
@@ -175,16 +172,17 @@ void kmain(uintptr_t mbi)
 	system::String *pStr = new system::String();
 	pStr->Copy("\033[1;33m[kmain] system::String using heap.\n\033[0m");
 	pStr->Debug();
-	
-	// delete the string, then recreate using initializer
+
 	delete pStr;
-	
 	pStr = new system::String("\033[1;34m[kmain] system::String using heap, and designated initializer.\n\033[0m");
 	pStr->Debug();
 	delete pStr;
 
 	debug_print("[kmain] Testing framebuffer\n");
 	system::fbdev = new system::framebuffer((uintptr_t)fbtag);
+
+	system::terminal *term = nullptr;
+
 	if (system::fbdev->virt)
 	{
 		debug_print("\n[kmain] Looks like the framebuffer is ready, clearing screen.\n");
@@ -193,7 +191,7 @@ void kmain(uintptr_t mbi)
 		{
 			system::fbdev->font = reinterpret_cast<PSF_FONT*>(module_tag->mod_start);
 			system::fbdev->show_test();
-			system::fbdev->draw_string("[kmain] The framebuffer is ready to go.\nBorrowing Linux console font lat9-16.psf (as our first module).", 1, 2);
+			system::fbdev->draw_string("[kmain] The framebuffer is ready to go.\n        Borrowing Linux console font lat9-16.psf (as our first module).", 1, 2);
 
 			// show more garbage using different text color
 			system::fbdev->forecolor = 0xff8005;
@@ -201,11 +199,54 @@ void kmain(uintptr_t mbi)
 
 			system::fbdev->forecolor = 0xff3010;
 			system::fbdev->draw_string("[kmain] -------- End of system test", 1, 8);
-			
-			system::fbdev->forecolor= 0xffffff;
-			system::fbdev->draw_string("[kmain] The system will sleep forever.", 1, 10);
+			system::fbdev->forecolor = 0xffffff;
+			system::fbdev->draw_string("The system sleep forever.", 1, 9);
+
+			/**
+			 * Create a local 'backbuffer'
+			 * and draw orange rectangle.
+			 *
+			 * Then blt the buffer to the fbdev
+			 */
+			unsigned *testBuf = new unsigned[300*100];
+			unsigned *pBuf = testBuf;
+			for (int i = 0; i < 100; i++)
+				for (int j = 0; j < 300; j++)
+					*pBuf++ = 0xdd7010;
+
+			// show some information about this test just above the rectangle.
+			system::fbdev->draw_string("Test Blt at (50, 400), from local buffer 300x100 rectangle", 
+					50 / system::fbdev->font->width,
+					380 / system::fbdev->font->height);
+			system::fbdev->blt(testBuf, 50, 400, 300, 100);
+
+			// change the color, and draw another copy of the rect
+			pBuf = testBuf;
+			for (int i = 0; i < 100; i++)
+				for (int j = 0; j < 300; j++)
+					*pBuf++ = 0x10de70;
+
+			system::fbdev->blt(testBuf, 360, 400, 300, 100);
+
+			/**
+			 * Draw terminal console's buffer
+			 */
+			term = new system::terminal(system::fbdev->width / 2, system::fbdev->height - 2);
+			term->puts("[kmain] Terminal buffer is ready.");
+			term->puts("[kmain] Sending blt() to the framebuffer...");
+			system::fbdev->blt(term->pixel_data(),
+					(system::fbdev->width / 2) - 1,
+					1,
+					term->window_width(),
+					term->window_height());
+			delete[] testBuf;
 		}
 	}
+
+	system::String str1("String created on the stack.\n");
+	str1.Append("Sample addr => ", &str1);
+	str1.AppendNumber("\nSample number => ", system::fbdev->width);
+	str1.Debug();
 
 	debug_print("\n[kmain] test completed.\nSleeping forever... bye...\n\n");
 

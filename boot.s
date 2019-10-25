@@ -33,8 +33,8 @@ fb_tag_start:
 	.short 5
 	.short 1
 	.long fb_tag_end - fb_tag_start
-	.long 1280		# width
-	.long 720		# height
+	.long 1600		# width
+	.long 900		# height
 	.long 32		# bpp
 fb_tag_end:
 

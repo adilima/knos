@@ -20,15 +20,9 @@ system::framebuffer::framebuffer(uintptr_t tag)
 	backcolor = 0x1010ff; // some blue color
 
 	size_t map_size = pitch * height;
-	
-	////////////////////////////////////////////////////////////////
-	// currently map to 0xffffffffd0400000
-	// but we can map to other address, as long as it is in 
-	// page boundary, if not then the result can be unpredictable
-	////////////////////////////////////////////////////////////////
-	virt = k_memory_map(phys, 0xffffffffd0400000, map_size);
+	virt = k_memory_map(phys, 0xffffffffc0400000, map_size);
 	if (!virt)
-		debug_print("\n[system::framebuffer] \033[1;31mWARNING: Failed to map virtual address for framebuffer.\033[0m\n");
+		debug_print("\n[system::framebuffer] \033[1;31mWARNING: Failed to map virtual address for framebuffer at 0xffffffffc0000000.\033[0m\n");
 }
 
 void system::framebuffer::clear()
@@ -78,7 +72,7 @@ void system::framebuffer::putchar(char ch, int xpos, int ypos)
  */
 void system::framebuffer::show_test()
 {
-	const char *strTest = "--------------------------- Framebuffer initialized ---------------------------";
+	const char *strTest = "------------------------------------- Framebuffer initialized --------------------------------";
 	char *p = const_cast<char*>(strTest);
 	int lastX = (int)font->width;
 	int lastY = (int)font->height;
@@ -121,6 +115,30 @@ void system::framebuffer::draw_string(const char *strText, int xpos, int ypos)
 		}
 		putchar(*p++, lastX, lastY);
 		lastX += font->width;
+	}
+}
+
+/**
+ * Preparing to implement simple text scrolling using external buffer.
+ * The text itself should be allocated as an array of 'rows' (char buffer),
+ * separated from the buffer itself.
+ *
+ * Currently this function just copy every pixels from the src,
+ * which is provided by main.cpp (as a plain rect filled with some colors).
+ */
+void system::framebuffer::blt(unsigned *buf, int xpos, int ypos, int nwidth, int nheight)
+{
+	unsigned *src = buf;
+	unsigned *dest = nullptr;
+	for (int y = ypos; y < (ypos + nheight); y++)
+	{
+		dest = (unsigned*)(virt + (y * pitch) + (xpos * 4));
+		int lastX = nwidth;
+		while (lastX)
+		{
+			*dest++ = *src++;
+			lastX--;
+		}
 	}
 }
 

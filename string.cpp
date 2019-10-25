@@ -147,3 +147,75 @@ void system::String::Debug()
 	debug_print("\n");
 }
 
+void system::String::Append(const char *strText)
+{
+	/**
+	 * Currently, does not check the bounds
+	 * just don't exceed the length or limit.
+	 */
+	size_t len = k_strlen(buffer);
+	char *p  = &buffer[len];
+	char *p2 = const_cast<char*>(strText);
+	while (*p2)
+		*p++ = *p2++;
+
+	*p = 0;
+}
+
+void system::String::Append(const char *title, void *paddr)
+{
+	Append(title);
+	char buf[50];
+	buf[0] = '0';
+	buf[1] = 'x';
+	char *p = &buf[2];
+	uint64_t ud = (uint64_t)paddr;
+
+	do
+	{
+		int remainder = ud % 16;
+		*p++ = (remainder < 10) ? remainder + '0' : remainder + 'A' - 10;
+	} while (ud /= 16);
+
+	*p = 0;
+	char *p1 = &buf[2];
+	char *p2 = p - 1;
+	while (p1 < p2)
+	{
+		char tmp = *p1;
+		*p1 = *p2;
+		*p2 = tmp;
+		p1++;
+		p2--;
+	}
+	Append(buf);
+}
+
+void system::String::AppendNumber(const char *title, size_t value)
+{
+	Append(title);
+	char buf[50];
+	char *p = &buf[0];
+	size_t ud = value;
+
+	do
+	{
+		int remainder = ud % 10;
+		*p++ = remainder + '0';
+	} while (ud /= 10);
+
+	*p = 0;
+	char *p1 = &buf[0];
+	char *p2 = p - 1;
+	while (p1 < p2)
+	{
+		char tmp = *p1;
+		*p1 = *p2;
+		*p2 = tmp;
+		p1++;
+		p2--;
+	}
+	Append(buf);
+}
+
+
