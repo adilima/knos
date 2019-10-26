@@ -71,6 +71,10 @@ uchar scancode_to_char(uchar sc, bool bShift)
 	return -1;
 }
 
+// Actually 0xFA is not an 'INVALID_KEY'
+// it is a response from the ps2, saying that
+// the command has been acknowledged.
+// But leave it this way for now :)
 #define INVALID_KEY 0xFA
 
 static
