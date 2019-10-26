@@ -25,6 +25,7 @@ Changes today:
   - Draw text to graphical framebuffer, instead of VGA.
   - Add lat9-16.psf font as GRUB2 module, use it as default font.
   - Modify the equation to calculate vaddr (also write a useful perl script for this).
+  - Added an assembly file to read RTC time.
   
  Calculate the Page Directory index for 2 MB pages using the following:
  
@@ -73,6 +74,6 @@ printf("At PML4 Table index %llu\nPDP index %llu\nFrame 0x%X\n",
 
 ```
 
-![Screenshot 1](Screenshot_2019-10-25_21-39-44.png "Recent test on QEMU")
+![Screenshot 1](Screenshot_2019-10-27_01-00-08.png "Recent test on QEMU")
 
 Console output is now implemented as external buffer, so the fbdev can focus on updating certain areas of the screen only, as needed (not yet fully implemented).
