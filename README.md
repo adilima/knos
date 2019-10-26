@@ -13,6 +13,12 @@ But it is now using mostly QEMU's serial device to output debugging messages, ra
 'standard' VGA/Text console, which in my opinion should not be used any further (will not work on
 UEFI based machines).
 
+First thing first, to build this project using my Makefile, you need to have x86_64-elf compiler/build tools.
+Although at this early stage you might be able to build using your linux distro's build system, but it's not recommended,
+and in the future probably not even supported.
+
+If you want to use linux compiler, then you must edit the Makefile, and change all variables related to compiler/linker or any other tools that have x86_64-elf- prefix.
+
 Added Framebuffer tag to boot.s, requested 800x600 @32 fbdev.
 Needless to say, also change some codes in boot.s to include another table (empty and not-present), but
 the entry in Page Directory Pointer already added to index 511, so it will use 0xFFFFFFFFC0000000 as the
