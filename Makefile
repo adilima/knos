@@ -14,11 +14,14 @@ CXXFLAGS = -O2 -ffreestanding -fno-builtin -fno-rtti -fno-exceptions \
 
 LDFLAGS = -n -T linker.ld 
 
-OBJECTS = boot.o debug.o memory.o main.o string.o fbdev.o terminal.o
+OBJECTS = boot.o debug.o memory.o main.o \
+		  string.o fbdev.o terminal.o rtc.o \
+		  keyboard.o
 
-##########################################################################
-# I guess it's time to change the name to KNOS, instead of 'test1'
-##########################################################################
+#################################################
+# The name should be 'knos', instead of 'test1'
+# I'm beginning to like it.
+#################################################
 TARGET  = knos
 
 all: $(TARGET)

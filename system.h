@@ -8,6 +8,14 @@ typedef unsigned short ushort;
 typedef unsigned long  ulong;
 typedef unsigned long  k_addr_t;  // unused so far, maybe deleted soon
 
+#define RTC_SECONDS      0
+#define RTC_MINUTES      2
+#define RTC_HOURS        4
+#define RTC_WEEKDAY      6
+#define RTC_DAY_OF_MONTH 7
+#define RTC_MONTH        8
+#define RTC_YEAR         9
+#define RTC_CENTURY      0x32
 
 extern "C" {
 
@@ -27,6 +35,21 @@ extern "C" {
 
 	void k_outb(uint16_t port, uint8_t value);
 	uint8_t k_inb(uint16_t port);
+
+	/**
+	 * Read RTC register.
+	 * 0x04 = Hour
+	 * 0x02 = Minute
+	 * 0x00 = Seconds
+	 * 0x06 = Weekday ( 1-7, 1 = Sunday )
+	 * 0x07 = Day of Month (1 - 31)
+	 * 0x08 = Month (1 - 12)
+	 * 0x09 = Year  (0-99)
+	 * 0x32 = Century (maybe) (19-20)
+	 * 0x0A = Status Register A
+	 * 0x0B = Status Register B
+	 */
+	uint8_t k_get_rtc(uint8_t rtc_id);
 
 	size_t k_strlen(const char *strText);
 	int k_str_equal(const char *str1, const char *str2, size_t len);
@@ -59,6 +82,7 @@ void debug_size(const char *strText, size_t nsize, bool bAppendBytes=false);
 
 uintptr_t k_memory_map(uintptr_t phys, uintptr_t virt, size_t len);
 void k_strcpy(char *dest, const char *src);
+uint32_t k_get_time(void);
 
 struct PSF_FONT {
 	uint32_t magic;
@@ -84,6 +108,7 @@ namespace system
 
 	void *HeapAlloc(size_t len);
 	void HeapFree(void *pv);
+	char getchar();
 
 	/**
 	 * Simple String implementation
@@ -174,6 +199,7 @@ namespace system
 		uint32_t pitch;
 		PSF_FONT *font; // will copy the address from system::fbdev::font
 		text_buffer *strBuff;
+		char input_buf[80];
 
 	public:
 		terminal(uint32_t cx, uint32_t cy);
@@ -188,10 +214,18 @@ namespace system
 		void clear();
 		void puts(const char *strText);
 
+		/**
+		 * Loop until ESC key pressed
+		 */
+		void test_input();
+		char getchar();
+
 	private:
 		// render the rows into the buffer
 		void draw_buffers();
 		void putchar(char ch, int xpos, int ypos);
+		int current_line_number();
+		text_buffer *find_line(int num);
 	};
 }
 

@@ -232,14 +232,24 @@ void kmain(uintptr_t mbi)
 			 * Draw terminal console's buffer
 			 */
 			term = new system::terminal(system::fbdev->width / 2, system::fbdev->height - 2);
-			term->puts("[kmain] Terminal buffer is ready.");
-			term->puts("[kmain] Sending blt() to the framebuffer...");
+			term->puts("[kmain] Actually transfer the buffer into framebuffer.");
 			system::fbdev->blt(term->pixel_data(),
 					(system::fbdev->width / 2) - 1,
 					1,
 					term->window_width(),
 					term->window_height());
 			delete[] testBuf;
+
+			while (1)
+			{
+				term->test_input();
+				system::fbdev->blt(term->pixel_data(),
+						(system::fbdev->width / 2) - 1,
+						1,
+						term->window_width(),
+						term->window_height());
+				asm volatile ("nop");
+			}
 		}
 	}
 
