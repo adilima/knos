@@ -14,15 +14,13 @@ CXXFLAGS = -O2 -ffreestanding -fno-builtin -fno-rtti -fno-exceptions \
 
 LDFLAGS = -n -T linker.ld 
 
-OBJECTS = boot.o debug.o memory.o main.o \
-		  string.o fbdev.o terminal.o rtc.o \
-		  keyboard.o
+OBJECTS = boot.o debug.o heap.o \
+		  memory.o rtc.o \
+		  main.o string.o \
+		  fbdev.o keyboard.o \
+		  ps2.o box.o
 
-#################################################
-# The name should be 'knos', instead of 'test1'
-# I'm beginning to like it.
-#################################################
-TARGET  = knos
+TARGET  = test1
 
 all: $(TARGET)
 
@@ -46,17 +44,31 @@ clean:
 	rm -fv *.o $(TARGET)
 
 
+
 run: $(TARGET)
-	mcopy -i part1 -o $(TARGET) ::/elf
+	e2cp -v $(TARGET) part1:/elf
 	cat mbr part1 > disk0
-	qemu-system-x86_64 --bios OVMF.fd -m 1024 -nographic -smp 4 -drive file=disk0,format=raw -no-reboot
+	qemu-system-x86_64 -m 1024 -nographic -smp 4 -drive file=disk0,format=raw -no-reboot
 	rm -fv disk0
 
 
 qemu: $(TARGET)
-	mcopy -i part1 -o $(TARGET) ::/elf
+	e2cp -v $(TARGET) part1:/elf
 	cat mbr part1 > disk0
-	qemu-system-x86_64 --bios OVMF.fd -m 1024 -serial stdio -drive file=disk0,format=raw -smp 4 -no-reboot
+	qemu-system-x86_64 -m 1024 -serial stdio -drive file=disk0,format=raw -smp 4 -no-reboot
+	rm -fv disk0
+
+egl: $(TARGET)
+	e2cp -v $(TARGET) part1:/elf
+	cat mbr part1 > disk0
+	qemu-system-x86_64 -m 1024 -serial stdio -drive file=disk0,format=raw -display egl-headless -no-reboot
+	rm -fv disk0
+
+
+curses: $(TARGET)
+	e2cp -v $(TARGET) part1:/elf
+	cat mbr part1 > disk0
+	qemu-system-x86_64 -m 1024 -drive file=disk0,format=raw -smp 4 -no-reboot -display curses
 	rm -fv disk0
 
 

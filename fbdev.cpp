@@ -72,7 +72,7 @@ void system::framebuffer::putchar(char ch, int xpos, int ypos)
  */
 void system::framebuffer::show_test()
 {
-	const char *strTest = "------------------------------------- Framebuffer initialized --------------------------------";
+	const char *strTest = "-------------------- Framebuffer initialized --------------------";
 	char *p = const_cast<char*>(strTest);
 	int lastX = (int)font->width;
 	int lastY = (int)font->height;
@@ -84,38 +84,6 @@ void system::framebuffer::show_test()
 		lastX += font->width;
 	}
 	forecolor = oldForecolor;
-}
-
-
-/**
- * Actually, we need to implement a simple text scrolling using text buffering
- * for each row (the size for each row can be smaller than fb->width, which will
- * also determined by the size of the buffer).
- *
- * But in the meantime, the following function is still necessary to output
- * at least a decent text on screen directly.
- */
-
-void system::framebuffer::draw_string(const char *strText, int xpos, int ypos)
-{
-	char *p = const_cast<char*>(strText);
-	int lastX = (int)font->width * xpos;
-	int lastY = (int)font->height * ypos;
-
-	while (*p)
-	{
-		if ((*p == '\n') || (*p == '\r'))
-		{
-			// avoid printing newline or carriage return
-			// they actually are unprintable.
-			lastX = (int)font->width;
-			lastY += (int)font->height;
-			p++;
-			continue;
-		}
-		putchar(*p++, lastX, lastY);
-		lastX += font->width;
-	}
 }
 
 /**

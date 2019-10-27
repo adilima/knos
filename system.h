@@ -6,16 +6,24 @@
 typedef unsigned char  uchar;
 typedef unsigned short ushort;
 typedef unsigned long  ulong;
-typedef unsigned long  k_addr_t;  // unused so far, maybe deleted soon
+typedef unsigned long  k_addr_t;
 
-#define RTC_SECONDS      0
-#define RTC_MINUTES      2
-#define RTC_HOURS        4
-#define RTC_WEEKDAY      6
-#define RTC_DAY_OF_MONTH 7
-#define RTC_MONTH        8
-#define RTC_YEAR         9
+#define RTC_SECONDS      0x00
+#define RTC_MINUTES      0x02
+#define RTC_HOURS        0x04
+#define RTC_WEEKDAY      0x06
+#define RTC_DAY_OF_MONTH 0x07
+#define RTC_MONTH        0x08
+#define RTC_YEAR         0x09
 #define RTC_CENTURY      0x32
+
+
+#define ACK 0xFA
+#define KEY_ENTER 28
+#define KEY_LSHIFT 42
+#define KEY_RSHIFT 54
+#define KEY_SPACE 57
+#define KEY_BACKSPACE 14
 
 extern "C" {
 
@@ -36,23 +44,22 @@ extern "C" {
 	void k_outb(uint16_t port, uint8_t value);
 	uint8_t k_inb(uint16_t port);
 
-	/**
-	 * Read RTC register.
-	 * 0x04 = Hour
-	 * 0x02 = Minute
-	 * 0x00 = Seconds
-	 * 0x06 = Weekday ( 1-7, 1 = Sunday )
-	 * 0x07 = Day of Month (1 - 31)
-	 * 0x08 = Month (1 - 12)
-	 * 0x09 = Year  (0-99)
-	 * 0x32 = Century (maybe) (19-20)
-	 * 0x0A = Status Register A
-	 * 0x0B = Status Register B
-	 */
-	uint8_t k_get_rtc(uint8_t rtc_id);
-
 	size_t k_strlen(const char *strText);
 	int k_str_equal(const char *str1, const char *str2, size_t len);
+
+	/**
+	 * For dealing with PS2
+	 */
+	uint8_t ps2_read(void);
+	void ps2_write(uint8_t value);
+	
+	uint8_t k_get_rtc(uint8_t index);
+	
+	/**
+	 * Return non-zero if RTC update is in progress
+	 */
+	int k_rtc_update_in_progress(void);
+	uint8_t k_rtc_get_value(uint8_t index);
 }
 
 /**
@@ -81,8 +88,10 @@ void debug_size(const char *strText, size_t nsize, bool bAppendBytes=false);
 	debug_addr(((const char *)(title)), ((uintptr_t)(val)))
 
 uintptr_t k_memory_map(uintptr_t phys, uintptr_t virt, size_t len);
-void k_strcpy(char *dest, const char *src);
-uint32_t k_get_time(void);
+
+char *k_strcat(char *p1, const char *p2);
+char *k_strcat_x(char *p1, const char *title, uintptr_t value);
+char *k_strcat_l(char *p1, const char *title, size_t value);
 
 struct PSF_FONT {
 	uint32_t magic;
@@ -97,6 +106,11 @@ struct PSF_FONT {
 
 namespace system
 {
+	struct k_object;
+	struct framebuffer;
+	class String;
+	class box;
+
 	struct k_object
 	{
 		size_t length;
@@ -108,12 +122,7 @@ namespace system
 
 	void *HeapAlloc(size_t len);
 	void HeapFree(void *pv);
-	char getchar();
 
-	/**
-	 * Simple String implementation
-	 * Only for test.
-	 */
 	class String
 	{
 		char *buffer;
@@ -133,9 +142,6 @@ namespace system
 
 		// display debug text on serial
 		void Debug();
-		void Append(const char *strText);
-		void Append(const char *title, void *paddr);
-		void AppendNumber(const char *title, size_t value);
 
 	protected:
 		char *Dup(const char *src);
@@ -165,19 +171,7 @@ namespace system
 		void clear();
 		void show_test();
 		void putchar(char ch, int xpos, int ypos);
-		void draw_string(const char *strText, int xpos, int ypos);
-
-		/**
-		 * The framebuffer does not need to know what the external buffer
-		 * contains, it can be text or any other graphics primitives.
-		 *
-		 * It only copy the pixels to the specified location.
-		 *
-		 * Actually putchar() and draw_string() should be implemented
-		 * in another class, representing a text buffer, then we can
-		 * use this function to display the text here.
-		 */
-		void blt(unsigned *buf, int xpos, int ypos, int cx, int cy);
+		void blt(unsigned *buf, int xpos, int ypos, int nwidth, int nheight);
 	};
 
 	/**
@@ -186,46 +180,64 @@ namespace system
 	 */
 	extern framebuffer *fbdev;
 
-	// forward decl
-	struct text_buffer;
+	/**
+	 * Easiest way is to define these items
+	 * in system namespace, thus avoid possible
+	 * collisions in the future.
+	 */
+	char getchar();
 
-	class terminal
+	class box
 	{
-		uint32_t *pixels;
-		uint32_t width;
-		uint32_t height;
-		uint32_t forecolor;
-		uint32_t backcolor;
-		uint32_t pitch;
-		PSF_FONT *font; // will copy the address from system::fbdev::font
-		text_buffer *strBuff;
-		char input_buf[80];
+		//////////////////////////////////////////////////////////////////
+		// too many objects using width, height, etc
+		// we better prefix internal private vars with m_
+		// add p for pointers.
+		//
+		// Yeaah I know, it's Microsoft notions, but it's not a bad idea.
+		//////////////////////////////////////////////////////////////////
+		uint32_t *m_pContext; // context for drawing
+		int m_nWidth;
+		int m_nHeight;
+		int m_nRows;          // how many rows this buffer has?
+		char *m_pszText;
+		size_t m_nLength;       // length of the text buffer
+		bool m_bExternalData;
+		PSF_FONT *m_pFont;   // a copy of fbdev->font
+		char m_szTitle[80];  // fixed length string for title of the box
+		unsigned m_forecolor;
+		unsigned m_backcolor;
 
 	public:
-		terminal(uint32_t cx, uint32_t cy);
-		~terminal();
+        ////////////////////////////////////////////////////////
+		// will create a default 80 chars width and 5 rows box
+		// using default fore/backcolors.
+		// Actually 6 rows (including the title box).
+		////////////////////////////////////////////////////////
+		box();
+		~box();
 
-		uint32_t *pixel_data() const;
-		uint32_t window_width() const;
-		uint32_t window_height() const;
-		uint32_t rows();
-		uint32_t columns();
+		int width() const
+		{ return *(int*)&m_nWidth; }
+		int height() const
+		{ return *(int*)&m_nHeight; }
+		uint32_t *data() const
+		{ return *(uint32_t**)&m_pContext; }
+		char *title() const
+		{ return *(char**)&m_szTitle; }
+		size_t text_length();
+		void set_text(const char *pszText);
+		
+		void set_title(const char *strTitle);
 
-		void clear();
-		void puts(const char *strText);
+        // display the box at the specified location
+        // in the framebuffer
+		void show(int xpos, int ypos);
 
-		/**
-		 * Loop until ESC key pressed
-		 */
-		void test_input();
-		char getchar();
-
-	private:
-		// render the rows into the buffer
-		void draw_buffers();
-		void putchar(char ch, int xpos, int ypos);
-		int current_line_number();
-		text_buffer *find_line(int num);
+	protected:
+		void draw_title();
+		void render_text();
+		void putchar(char c, int xpos, int ypos);
 	};
 }
 

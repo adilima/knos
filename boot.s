@@ -33,8 +33,8 @@ fb_tag_start:
 	.short 5
 	.short 1
 	.long fb_tag_end - fb_tag_start
-	.long 1600		# width
-	.long 900		# height
+	.long 800		# width
+	.long 600		# height
 	.long 32		# bpp
 fb_tag_end:
 
@@ -70,13 +70,6 @@ kernel_temp_pages:
 fb_pages:
 	.skip 0x4000
 paging_data_end:
-
-##############################################
-# The MBI data can be large, especially if
-# we request to load more modules like fonts
-# if the modules count increase, we may need
-# to increase the following size.
-##############################################
 mbi_data:
 	.skip 0x1000
 

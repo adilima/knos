@@ -70,6 +70,7 @@ namespace system {
 	k_object *root = nullptr;
 }
 
+
 extern "C"
 void kmain(uintptr_t mbi)
 {
@@ -181,7 +182,6 @@ void kmain(uintptr_t mbi)
 	debug_print("[kmain] Testing framebuffer\n");
 	system::fbdev = new system::framebuffer((uintptr_t)fbtag);
 
-	system::terminal *term = nullptr;
 
 	if (system::fbdev->virt)
 	{
@@ -191,79 +191,152 @@ void kmain(uintptr_t mbi)
 		{
 			system::fbdev->font = reinterpret_cast<PSF_FONT*>(module_tag->mod_start);
 			system::fbdev->show_test();
-			system::fbdev->draw_string("[kmain] The framebuffer is ready to go.\n        Borrowing Linux console font lat9-16.psf (as our first module).", 1, 2);
-
-			// show more garbage using different text color
-			system::fbdev->forecolor = 0xff8005;
-			system::fbdev->draw_string("[kmain] This text is drawn as an array of glyphs into the fbdev, instead of VGA text buffer.\n        Drawing text is actually not that hard, but of course need to write extra codes.", 1, 5);
-
-			system::fbdev->forecolor = 0xff3010;
-			system::fbdev->draw_string("[kmain] -------- End of system test", 1, 8);
-			system::fbdev->forecolor = 0xffffff;
-			system::fbdev->draw_string("The system sleep forever.", 1, 9);
-
-			/**
-			 * Create a local 'backbuffer'
-			 * and draw orange rectangle.
-			 *
-			 * Then blt the buffer to the fbdev
-			 */
-			unsigned *testBuf = new unsigned[300*100];
-			unsigned *pBuf = testBuf;
-			for (int i = 0; i < 100; i++)
-				for (int j = 0; j < 300; j++)
-					*pBuf++ = 0xdd7010;
-
-			// show some information about this test just above the rectangle.
-			system::fbdev->draw_string("Test Blt at (50, 400), from local buffer 300x100 rectangle", 
-					50 / system::fbdev->font->width,
-					380 / system::fbdev->font->height);
-			system::fbdev->blt(testBuf, 50, 400, 300, 100);
-
-			// change the color, and draw another copy of the rect
-			pBuf = testBuf;
-			for (int i = 0; i < 100; i++)
-				for (int j = 0; j < 300; j++)
-					*pBuf++ = 0x10de70;
-
-			system::fbdev->blt(testBuf, 360, 400, 300, 100);
-
-			/**
-			 * Draw terminal console's buffer
-			 */
-			term = new system::terminal(system::fbdev->width / 2, system::fbdev->height - 2);
-			term->puts("[kmain] Actually transfer the buffer into framebuffer.");
-			system::fbdev->blt(term->pixel_data(),
-					(system::fbdev->width / 2) - 1,
-					1,
-					term->window_width(),
-					term->window_height());
-			delete[] testBuf;
-
-			while (1)
-			{
-				term->test_input();
-				system::fbdev->blt(term->pixel_data(),
-						(system::fbdev->width / 2) - 1,
-						1,
-						term->window_width(),
-						term->window_height());
-				asm volatile ("nop");
-			}
 		}
 	}
 
-	system::String str1("String created on the stack.\n");
-	str1.Append("Sample addr => ", &str1);
-	str1.AppendNumber("\nSample number => ", system::fbdev->width);
-	str1.Debug();
+	system::box *pBox = new system::box();
+	pBox->set_title("Terminal");
+	pBox->show(10, 50);
+	
+	system::box *pRTCBox = new system::box();
+	pRTCBox->set_title("RTC Time");
+	pRTCBox->show(25, 200);
 
-	debug_print("\n[kmain] test completed.\nSleeping forever... bye...\n\n");
+	debug_print("\n[kmain] Time to test the keyboard inputs.\n");
+	
+	char lastChar = system::getchar();
 
-	while (1)
-	{
-		asm volatile("nop");
+	char arr[80];
+	
+	while (lastChar)
+	{	
+		// display current time using new RTC function
+		while (k_rtc_update_in_progress());
+		
+		uint8_t hours = k_get_rtc(RTC_HOURS);
+		uint8_t minutes = k_get_rtc(RTC_MINUTES);
+		uint8_t secs = k_get_rtc(RTC_SECONDS);
+		
+		////////////////////////////////////////////////
+		// actually we must convert these values
+		// otherwise it will be displayed incorrectly
+		// if these are in BCD.
+		//
+		// Or we can choose to display BCD values as 'HEX',
+		// but of course without '0x' prefixes.
+		////////////////////////////////////////////////
+		uint8_t regb = k_rtc_get_value(0x0b);
+		if ((regb & 0x04) == 0)
+		{
+		    //////////////////////////////////////////////////////////////////////////////
+		    // This means the values are in BCD format.
+		    // If the time is 22:16:34, then it can be
+		    // displayed 'correctly' as:
+		    // 0x22:0x16:0x34
+		    // Where 0x22 is actually 34, 0x16 is 22, and 0x34 surely is 52
+		    //
+		    // Confused?
+		    // :-)
+		    /////////////////////////////////////////////////////////////////////////////
+		    hours   = ((hours & 0xf) + (((hours & 0x70) / 16) * 10)) | (hours & 0x80);
+		    minutes = (minutes & 0xf) + ((minutes / 16) * 10);
+		    secs    = (secs & 0xf) + ((secs / 16) * 10);
+		}
+		
+		arr[0] = 0;
+		
+		char *pos = k_strcat_l(arr, "Current Time: ", hours);
+		pos = k_strcat_l(pos, ":", minutes);
+		pos = k_strcat_l(pos, ":", secs);
+		pRTCBox->set_text(arr);
+		pRTCBox->show(50, 250);
+		
+		int nIndex = 0;
+		if (lastChar == -1)
+		{
+			lastChar = system::getchar();
+			continue;
+		}
+
+    	arr[nIndex] = lastChar;
+		arr[nIndex+1] = 0;
+		nIndex++;
+		if (nIndex >= 80)
+		{
+		    pBox->set_text("cmd> ");
+		    lastChar = system::getchar();
+		    pBox->show(10, 50);
+		    continue;
+		}
+		pBox->set_text(arr);
+		lastChar = system::getchar();
+		pBox->show(10, 50);
 	}
 }
 
+
+char *k_strcat(char *p1, const char *p2)
+{
+    char *dest = p1;
+    char *src = const_cast<char*>(p2);
+    while (*src)
+        *dest++ = *src++;
+    *dest = 0;
+    return dest;
+}
+
+char *k_strcat_x(char *p1, const char *title, uintptr_t value)
+{
+    char *last = k_strcat(p1, title);
+    *last++ = '0';
+    *last++ = 'x';
+    
+    size_t ud = value;
+    
+    char *p = last;
+    
+    do
+    {
+        int remainder = ud % 16;
+        *last++ = (remainder < 10) ? remainder + '0' : remainder + 'A' - 10;
+    } while (ud /= 16);
+    
+    *last = 0;
+    char *p2 = last - 1;
+    while (p < p2)
+    {
+        char tmp = *p;
+        *p = *p2;
+        *p2 = tmp;
+        p++;
+        p2--;
+    }
+    return last;
+}
+
+char *k_strcat_l(char *p1, const char *title, size_t value)
+{
+    char *last = k_strcat(p1, title);
+    size_t ud = value;
+    
+    char *p = last;
+    
+    do
+    {
+        int remainder = ud % 10;
+        *last++ = remainder + '0';
+    } while (ud /= 10);
+    
+    *last = 0;
+    char *p2 = last - 1;
+    while (p < p2)
+    {
+        char tmp = *p;
+        *p = *p2;
+        *p2 = tmp;
+        p++;
+        p2--;
+    }
+    return last;
+}
 
