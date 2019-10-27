@@ -80,6 +80,17 @@ printf("At PML4 Table index %llu\nPDP index %llu\nFrame 0x%X\n",
 
 ```
 
-![Screenshot 1](Screenshot_2019-10-27_01-00-08.png "Recent test on QEMU")
+![Screenshot 1](display-boxes.png "Categorized Info Boxes")
 
-Console output is now implemented as external buffer, so the fbdev can focus on updating certain areas of the screen only, as needed (not yet fully implemented).
+Console output is now implemented as external buffer, I need to simplify the display to focus on what I currently investigate,
+so now common informations can be folded as boxes.
+
+They actually can be simplify further, we can reuse the object and render the buffer at different locations, after altering
+their contents.
+
+![Screenshot 2](Screenshot_2019-10-27_20-57-45-RTC.png "Using boxes")
+
+The system::getchar() implementation is still incorrect.
+
+:-)
+
