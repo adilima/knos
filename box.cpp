@@ -1,5 +1,8 @@
 #include "system.h"
 
+/**
+ * This function should be moved to other file soon.
+ */
 void k_strcpy(char *dest, const char *src)
 {
 	char *p2 = const_cast<char*>(src);
